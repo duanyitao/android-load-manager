@@ -1,0 +1,111 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+
+    ext.buildConfig = [
+            compileSdk   : 28, // SDK 编译版本
+            minSdk       : 19, // 最小 SDK 版本
+            instantMinSdk: 21, // Instant Run 的最小 SDK 版本
+            targetSdk    : 28, // 目标 SDK 版本
+
+            version      : [
+                    major: 2, // 主版本号
+                    minor: 0, // 子版本号
+                    patch: 0, // 修正版本号
+            ],
+    ]
+
+    // 版本名采用 GNU 风格，主版本号.子版本号.修正版本号，例如 1.2.10
+    ext.buildConfig.version['name'] = "${buildConfig.version.major}.${buildConfig.version.minor}.${buildConfig.version.patch}"
+    // 版本号由版本名映射，主版本号 * 10000 + 子版本号 * 100 + 修正版本号，例如 1.2.10 -> 10210
+    ext.buildConfig.version['code'] = buildConfig.version.major * 10000 + buildConfig.version.minor * 100 + buildConfig.version.patch
+
+    ext.versions = [
+            /* Plugin. */
+            plugin     : [
+                    android    : '3.5.2',
+                    artifactory: '4.9.3',
+                    ktlint     : '7.2.1',
+            ],
+
+            /* Kotlin. */
+            kotlin     : [
+                    stdlib: '1.3.50',
+            ],
+            test       : [
+                    mockk      : '1.9.3',
+                    robolectric: '4.2.1',
+            ],
+            threetenabp: '1.2.0',
+    ]
+
+    ext.mavenUrl = [
+            aliyun : 'http://maven.aliyun.com/nexus/content/groups/public/',
+            jitpack: 'https://jitpack.io',
+            kotlinx: 'https://kotlin.bintray.com/kotlinx'
+    ]
+
+    ext.artifactory = [
+            groupId   : 'group-id',
+            artifactId: 'load-manager',
+    ]
+
+    ext.deps = [
+            plugin     : [
+                    android    : "com.android.tools.build:gradle:${versions.plugin.android}",
+                    artifactory: "org.jfrog.buildinfo:build-info-extractor-gradle:${versions.plugin.artifactory}",
+                    kotlin     : "org.jetbrains.kotlin:kotlin-gradle-plugin:${versions.kotlin.stdlib}",
+                    ktlint     : "org.jlleitschuh.gradle:ktlint-gradle:${versions.plugin.ktlint}",
+            ],
+            kotlin     : [
+                    stdlib: "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${versions.kotlin.stdlib}",
+                    junit : "org.jetbrains.kotlin:kotlin-test-junit:${versions.kotlin.stdlib}",
+            ],
+            test       : [
+                    mockk      : "io.mockk:mockk:${versions.test.mockk}",
+                    robolectric: "org.robolectric:robolectric:${versions.test.robolectric}",
+            ],
+            threetenabp: "com.jakewharton.threetenabp:threetenabp:${versions.threetenabp}",
+    ]
+
+    repositories {
+        maven { url mavenUrl.aliyun }
+        maven { url mavenUrl.kotlinx }
+        google()
+        gradlePluginPortal()
+    }
+
+    dependencies {
+        classpath deps.plugin.android
+        classpath deps.plugin.artifactory
+        classpath deps.plugin.kotlin
+        classpath deps.plugin.ktlint
+    }
+}
+
+allprojects {
+//    apply plugin: 'org.jlleitschuh.gradle.ktlint'
+//
+//    ktlint {
+//        android = false
+//    }
+
+    repositories {
+        maven { url mavenUrl.aliyun }
+        maven { url mavenUrl.kotlinx }
+        google()
+        jcenter()
+    }
+
+    configurations.all {
+        resolutionStrategy {
+            eachDependency { details ->
+                // Force all Kotlin stdlib artifacts to use the same version.
+                if (details.requested.group == 'org.jetbrains.kotlin'
+                        && details.requested.name.startsWith('kotlin-stdlib')) {
+                    details.useVersion versions.kotlin.stdlib
+                }
+            }
+        }
+    }
+}

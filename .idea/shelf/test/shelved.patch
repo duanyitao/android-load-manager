@@ -1,0 +1,638 @@
+Index: library/src/main/kotlin/com/fcbox/load/manager/core/LoadLayout.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright 2015-2019 Hive Box.\n */\n\npackage com.fcbox.load.manager.core\n\nimport android.content.Context\nimport android.os.Looper\nimport android.view.View\nimport android.widget.FrameLayout\n\nimport java.util.HashMap\n\n/**\n * @author duanyitao\n */\n\nclass LoadLayout(\n    context: Context,\n    private val onReloadListener: ((View) -> Unit)? = null\n) : FrameLayout(context) {\n\n    class SuccessCallback(\n        view: View,\n        context: Context,\n        onReloadListener: ((View) -> Unit)?\n    ) : LoadCallback(view, context, onReloadListener) {\n        override fun onCreateView(): Int {\n            return 0\n        }\n    }\n\n    private val callbacks = HashMap<Class<out LoadCallback>, LoadCallback>()\n\n    private var mPreLoadCallback: Class<out LoadCallback>? = null\n    private var mCurrentLoadCallback: Class<out LoadCallback>? = null\n\n    private val isMainThread: Boolean\n        get() = Looper.myLooper() == Looper.getMainLooper()\n\n    fun setupSuccessLayout(loadCallback: LoadCallback) {\n        addCallback(loadCallback)\n        val successView = loadCallback.getRootView()\n        successView.visibility = View.GONE\n        addView(successView)\n        mCurrentLoadCallback = SuccessCallback::class.java\n    }\n\n    fun setupCallback(loadCallback: LoadCallback) {\n        val cloneCallback = loadCallback.copy()\n        cloneCallback.setCallback(null, context, onReloadListener)\n        addCallback(cloneCallback)\n    }\n\n    private fun addCallback(loadCallback: LoadCallback) {\n        if (!callbacks.containsKey(loadCallback.javaClass)) {\n            callbacks[loadCallback.javaClass] = loadCallback\n        }\n    }\n\n    fun showCallback(loadCallback: Class<out LoadCallback>) {\n        checkCallbackExist(loadCallback)\n        if (isMainThread) {\n            showCallbackView(loadCallback)\n        } else {\n            post { showCallbackView(loadCallback) }\n        }\n    }\n\n    private fun showCallbackView(status: Class<out LoadCallback>) {\n\n        if (mPreLoadCallback != null) {\n            if (mPreLoadCallback == status) {\n                return\n            }\n        }\n\n        if (childCount > 1) {\n            removeViewAt(1)\n        }\n\n        val successCallbackClz = SuccessCallback::class.java\n        val successCallback = callbacks[successCallbackClz] as SuccessCallback?\n        val successView = successCallback?.obtainRootView()\n\n        for (i in 0 until childCount) {\n            val child = getChildAt(i)\n            if (child != successView) {\n                removeView(child)\n            }\n        }\n\n        callbacks.keys.forEach {\n            if (it == status) {\n                if (it == successCallbackClz) {\n                    successView?.apply {\n                        // Set the content view to 0% opacity but visible, so that it is visible\n                        // (but fully transparent) during the animation.\n                        alpha = 0f\n                        visibility = View.VISIBLE\n\n                        // Animate the content view to 100% opacity, and clear any animation\n                        // listener set on the view.\n                        animate()\n                            .alpha(1f)\n                            .setDuration(animateTime)\n                            .setListener(null)\n                    }\n                } else {\n                    successCallback?.obtainRootView()?.visibility = View.GONE\n                    callbacks[it]?.getRootView()?.run { addView(this) }\n                }\n                mPreLoadCallback = status\n            }\n        }\n        mCurrentLoadCallback = status\n    }\n\n    private fun checkCallbackExist(loadCallback: Class<out LoadCallback>) {\n        if (!callbacks.containsKey(loadCallback)) {\n            throw IllegalArgumentException(\n                String.format(\n                    \"The LoadCallback (%s) is nonexistent.\", loadCallback\n                        .simpleName\n                )\n            )\n        }\n    }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- library/src/main/kotlin/com/fcbox/load/manager/core/LoadLayout.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ library/src/main/kotlin/com/fcbox/load/manager/core/LoadLayout.kt	(date 1573730240000)
+@@ -4,10 +4,14 @@
+ 
+ package com.fcbox.load.manager.core
+ 
++import android.annotation.SuppressLint
+ import android.content.Context
+ import android.os.Looper
++import android.util.AttributeSet
++import android.util.Log
+ import android.view.View
+ import android.widget.FrameLayout
++import com.fcbox.load.manager.state.Success
+ 
+ import java.util.HashMap
+ 
+@@ -15,41 +19,53 @@
+  * @author duanyitao
+  */
+ 
+-class LoadLayout(
+-    context: Context,
+-    private val onReloadListener: ((View) -> Unit)? = null
+-) : FrameLayout(context) {
++@SuppressLint("ViewConstructor")
++internal class LoadLayout : FrameLayout {
++
++    private var onReloadListener: ((View) -> Unit)? = null
++
++    constructor(context: Context, onReloadListener: ((View) -> Unit)? = null) : this(
++        context,
++        null,
++        onReloadListener
++    )
++
++    internal constructor(
++        context: Context,
++        attributeSet: AttributeSet?,
++        onReloadListener: ((View) -> Unit)? = null
++    ) : this(context, attributeSet, 0, onReloadListener)
+ 
+-    class SuccessCallback(
+-        view: View,
++    internal constructor(
+         context: Context,
++        attributeSet: AttributeSet?,
++        defStyle: Int,
+         onReloadListener: ((View) -> Unit)?
+-    ) : LoadCallback(view, context, onReloadListener) {
+-        override fun onCreateView(): Int {
+-            return 0
+-        }
++    ) : super(
++        context,
++        attributeSet,
++        defStyle
++    ) {
++        this.onReloadListener = onReloadListener
+     }
+ 
+     private val callbacks = HashMap<Class<out LoadCallback>, LoadCallback>()
+ 
+-    private var mPreLoadCallback: Class<out LoadCallback>? = null
+     private var mCurrentLoadCallback: Class<out LoadCallback>? = null
+ 
+     private val isMainThread: Boolean
+         get() = Looper.myLooper() == Looper.getMainLooper()
+ 
+-    fun setupSuccessLayout(loadCallback: LoadCallback) {
++    fun installSuccessLayout(loadCallback: LoadCallback) {
+         addCallback(loadCallback)
+-        val successView = loadCallback.getRootView()
+-        successView.visibility = View.GONE
++        val successView = loadCallback.obtainRootView()
+         addView(successView)
+-        mCurrentLoadCallback = SuccessCallback::class.java
+     }
+ 
+-    fun setupCallback(loadCallback: LoadCallback) {
+-        val cloneCallback = loadCallback.copy()
+-        cloneCallback.setCallback(null, context, onReloadListener)
+-        addCallback(cloneCallback)
++    fun installCallback(loadCallback: LoadCallback) {
++//        val cloneCallback = loadCallback.copy()
++        loadCallback.setCallback(context, onReloadListener)
++        addCallback(loadCallback)
+     }
+ 
+     private fun addCallback(loadCallback: LoadCallback) {
+@@ -67,33 +83,28 @@
+         }
+     }
+ 
+-    private fun showCallbackView(status: Class<out LoadCallback>) {
++    private fun showCallbackView(callback: Class<out LoadCallback>) {
+ 
+-        if (mPreLoadCallback != null) {
+-            if (mPreLoadCallback == status) {
++        mCurrentLoadCallback?.let {
++            if (mCurrentLoadCallback == callback) {
+                 return
+             }
+         }
+ 
+-        if (childCount > 1) {
+-            removeViewAt(1)
++        for (i in 1 until childCount) {
++            val view = getChildAt(i)
++            removeView(view)
++            Log.d("load-manager", "remove view: $view")
+         }
+ 
+-        val successCallbackClz = SuccessCallback::class.java
+-        val successCallback = callbacks[successCallbackClz] as SuccessCallback?
+-        val successView = successCallback?.obtainRootView()
++        val successCallback = callbacks[Success::class.java] as Success
++        val successView = successCallback.obtainRootView()
+ 
+-        for (i in 0 until childCount) {
+-            val child = getChildAt(i)
+-            if (child != successView) {
+-                removeView(child)
+-            }
+-        }
+ 
+         callbacks.keys.forEach {
+-            if (it == status) {
+-                if (it == successCallbackClz) {
+-                    successView?.apply {
++            if (it == callback) {
++                if (it == Success::class.java) {
++                    successView.apply {
+                         // Set the content view to 0% opacity but visible, so that it is visible
+                         // (but fully transparent) during the animation.
+                         alpha = 0f
+@@ -106,24 +117,28 @@
+                             .setDuration(animateTime)
+                             .setListener(null)
+                     }
++                    Log.d("load-manager", "show success view")
+                 } else {
+-                    successCallback?.obtainRootView()?.visibility = View.GONE
+-                    callbacks[it]?.getRootView()?.run { addView(this) }
++                    with(callbacks[it]!!.obtainRootView()) {
++                        val frameLayout = this.parent as FrameLayout?
++                        frameLayout?.let { parent ->
++                            Log.d("load-manager", "remove $this from: $parent")
++                            parent.removeView(this)
++                        }
++                        addView(this)
++                        Log.d("load-manager", "add view: $this")
++                    }
++                    successView.visibility = View.GONE
+                 }
+-                mPreLoadCallback = status
++                mCurrentLoadCallback = it
++                return@forEach
+             }
+         }
+-        mCurrentLoadCallback = status
+     }
+ 
+     private fun checkCallbackExist(loadCallback: Class<out LoadCallback>) {
+-        if (!callbacks.containsKey(loadCallback)) {
+-            throw IllegalArgumentException(
+-                String.format(
+-                    "The LoadCallback (%s) is nonexistent.", loadCallback
+-                        .simpleName
+-                )
+-            )
++        require(callbacks.containsKey(loadCallback)) {
++            String.format("The LoadCallback (%s) is nonexistent.", loadCallback.simpleName)
+         }
+     }
+ }
+Index: library/src/main/kotlin/com/fcbox/load/manager/core/TargetContext.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright 2015-2019 Hive Box.\n */\n\npackage com.fcbox.load.manager.core\n\nimport android.content.Context\nimport android.view.View\nimport android.view.ViewGroup\n\n/**\n * @author duanyitao\n */\ndata class TargetContext(\n    val context: Context,\n    val parentView: ViewGroup,\n    val contentView: View,\n    val childIndex: Int\n)\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- library/src/main/kotlin/com/fcbox/load/manager/core/TargetContext.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ library/src/main/kotlin/com/fcbox/load/manager/core/TargetContext.kt	(date 1573730240000)
+@@ -4,16 +4,14 @@
+ 
+ package com.fcbox.load.manager.core
+ 
+-import android.content.Context
+ import android.view.View
+ import android.view.ViewGroup
+ 
+ /**
+  * @author duanyitao
+  */
+-data class TargetContext(
+-    val context: Context,
+-    val parentView: ViewGroup,
+-    val contentView: View,
++internal data class TargetContext(
++    val contentParent: ViewGroup,
++    val target: View,
+     val childIndex: Int
+ )
+Index: library/src/main/kotlin/com/fcbox/load/manager/state/Success.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- library/src/main/kotlin/com/fcbox/load/manager/state/Success.kt	(date 1573730240000)
++++ library/src/main/kotlin/com/fcbox/load/manager/state/Success.kt	(date 1573730240000)
+@@ -0,0 +1,21 @@
++/*
++ * Copyright 2015-2019 Hive Box.
++ */
++
++package com.fcbox.load.manager.state
++
++import android.content.Context
++import android.view.View
++import com.fcbox.load.manager.core.LoadCallback
++
++class Success internal constructor(
++    view: View
++) : LoadCallback(view, view.context, null) {
++    override fun onReloadEvent(context: Context, view: View): Boolean {
++        return true
++    }
++
++    override fun onCreateView(): Int {
++        return 0
++    }
++}
+\ No newline at end of file
+Index: app/src/main/java/com/fcbox/app/MainActivity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.fcbox.app\n\nimport android.content.Intent\nimport androidx.appcompat.app.AppCompatActivity\nimport android.os.Bundle\nimport com.fcbox.load.manager.core.LoadCallback\nimport com.fcbox.load.manager.core.LoadLayout\nimport com.fcbox.load.manager.core.LoadManager\nimport com.fcbox.load.manager.state.Empty\nimport com.fcbox.load.manager.state.Error\nimport com.fcbox.load.manager.state.Loading\nimport com.fcbox.load.manager.state.Timeout\nimport kotlinx.android.synthetic.main.activity_main.content\n\nclass Custom : LoadCallback() {\n    override fun onCreateView(): Int {\n        return R.layout.activity_custom\n    }\n}\n\nclass MainActivity : AppCompatActivity() {\n\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_main)\n        val inputCallBacks = hashSetOf(\n            Loading(),\n            Timeout(),\n            Error(),\n            Empty(),\n            Custom()\n        )\n\n        LoadManager.addCallbacks(inputCallBacks)\n            .setDefaultCallback(LoadLayout.SuccessCallback::class.java)\n            .setAnimateTime(100)\n\n        content.setOnClickListener {\n            startActivity(Intent(this, Main2Activity::class.java))\n        }\n    }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/com/fcbox/app/MainActivity.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ app/src/main/java/com/fcbox/app/MainActivity.kt	(date 1573730240000)
+@@ -1,14 +1,14 @@
+ package com.fcbox.app
+ 
+ import android.content.Intent
+-import androidx.appcompat.app.AppCompatActivity
+ import android.os.Bundle
++import androidx.appcompat.app.AppCompatActivity
+ import com.fcbox.load.manager.core.LoadCallback
+-import com.fcbox.load.manager.core.LoadLayout
+ import com.fcbox.load.manager.core.LoadManager
+ import com.fcbox.load.manager.state.Empty
+ import com.fcbox.load.manager.state.Error
+ import com.fcbox.load.manager.state.Loading
++import com.fcbox.load.manager.state.Success
+ import com.fcbox.load.manager.state.Timeout
+ import kotlinx.android.synthetic.main.activity_main.content
+ 
+@@ -20,6 +20,11 @@
+ 
+ class MainActivity : AppCompatActivity() {
+ 
++    override fun onResume(){
++        super.onResume()
++        System.gc()
++    }
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         setContentView(R.layout.activity_main)
+@@ -31,12 +36,15 @@
+             Custom()
+         )
+ 
+-        LoadManager.addCallbacks(inputCallBacks)
+-            .setDefaultCallback(LoadLayout.SuccessCallback::class.java)
+-            .setAnimateTime(100)
++        LoadManager.install(inputCallBacks)
++            .apply {
++                setDefaultCallback(Success::class.java)
++                setAnimateTime(100)
++            }
+ 
+         content.setOnClickListener {
+             startActivity(Intent(this, Main2Activity::class.java))
+         }
+     }
++
+ }
+Index: app/src/main/java/com/fcbox/app/Main2Activity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright 2015-2019 Hive Box.\n */\n\npackage com.fcbox.app\n\nimport androidx.appcompat.app.AppCompatActivity\nimport android.os.Bundle\nimport android.widget.Toast\nimport com.fcbox.load.manager.core.LoadService\nimport com.fcbox.load.manager.core.observe\nimport com.fcbox.load.manager.state.Loading\nimport kotlinx.android.synthetic.main.activity_main2.content\nimport kotlin.concurrent.thread\n\nclass Main2Activity : AppCompatActivity() {\n\n    private lateinit var loadService: LoadService\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_main2)\n\n        loadService = content.observe {\n            Toast.makeText(this, \"reload\", Toast.LENGTH_LONG).show()\n        }\n\n        thread {\n            Thread.sleep(3000)\n            loadService.notify(Loading())\n            Thread.sleep(3000)\n            loadService.notify(Throwable())\n            Thread.sleep(3000)\n            loadService.notify(Custom())\n            Thread.sleep(3000)\n            loadService.showSuccess()\n        }\n    }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/src/main/java/com/fcbox/app/Main2Activity.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ app/src/main/java/com/fcbox/app/Main2Activity.kt	(date 1573730240000)
+@@ -6,15 +6,19 @@
+ 
+ import androidx.appcompat.app.AppCompatActivity
+ import android.os.Bundle
++import android.util.Log
++import android.view.ViewGroup
+ import android.widget.Toast
+ import com.fcbox.load.manager.core.LoadService
+ import com.fcbox.load.manager.core.observe
+ import com.fcbox.load.manager.state.Loading
++import com.fcbox.load.manager.state.Timeout
+ import kotlinx.android.synthetic.main.activity_main2.content
+ import kotlin.concurrent.thread
+ 
+ class Main2Activity : AppCompatActivity() {
+ 
++    private var finish = false
+     private lateinit var loadService: LoadService
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+@@ -23,16 +27,28 @@
+         loadService = content.observe {
+             Toast.makeText(this, "reload", Toast.LENGTH_LONG).show()
+         }
++        val time = 100L
+ 
+         thread {
+-            Thread.sleep(3000)
+-            loadService.notify(Loading())
+-            Thread.sleep(3000)
+-            loadService.notify(Throwable())
+-            Thread.sleep(3000)
+-            loadService.notify(Custom())
+-            Thread.sleep(3000)
+-            loadService.showSuccess()
++            repeat(10) {
++                if (!finish) {
++                    (content.parent as ViewGroup).postDelayed({ loadService.notify(Loading()) }, time)
++                    (content.parent as ViewGroup).postDelayed({ loadService.notify(Throwable()) }, time)
++                    (content.parent as ViewGroup).postDelayed({ loadService.notify(Custom()) }, time)
++                    (content.parent as ViewGroup).postDelayed({ loadService.notify(Timeout()) }, time)
++                    (content.parent as ViewGroup).postDelayed({ loadService.showSuccess() }, time)
++
++                    Thread.sleep(100)
++                    Log.d("load-manager","doing...")
++                } else{
++                    return@repeat
++                }
++            }
+         }
+     }
++
++//    override fun onDestroy() {
++//        super.onDestroy()
++//        finish = true
++//    }
+ }
+Index: library/src/main/kotlin/com/fcbox/load/manager/core/LoadService.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright 2015-2019 Hive Box.\n */\n\npackage com.fcbox.load.manager.core\n\nimport android.view.View\nimport com.fcbox.load.manager.inter.INetError\nimport com.fcbox.load.manager.inter.INetTimeout\nimport com.fcbox.load.manager.state.Error\nimport com.fcbox.load.manager.state.Timeout\n\n/**\n * @author duanyitao\n */\nclass LoadService(\n    targetContext: TargetContext,\n    onReloadListener: ((View) -> Unit)?\n) {\n\n    private val loadLayout: LoadLayout = LoadLayout(targetContext.context, onReloadListener)\n\n    init {\n        loadLayout.setupSuccessLayout(\n            LoadLayout.SuccessCallback(\n                targetContext.contentView,\n                targetContext.context,\n                onReloadListener\n            )\n        )\n        targetContext.parentView.addView(\n            loadLayout,\n            targetContext.childIndex, targetContext.contentView.layoutParams\n        )\n        callbacks.forEach { loadLayout.setupCallback(it) }\n        loadLayout.showCallback(defaultLoadCallback)\n    }\n\n    fun showSuccess() {\n        loadLayout.showCallback(LoadLayout.SuccessCallback::class.java)\n    }\n\n    private fun showCallback(loadCallback: Class<out LoadCallback>) {\n        loadLayout.showCallback(loadCallback)\n    }\n\n    fun notify(event: Any) {\n        when (event) {\n            is INetTimeout ->\n                showCallback(Timeout::class.java)\n            is INetError,\n            is Throwable -> {\n                showCallback(Error::class.java)\n            }\n            else -> {\n                showCallback((event as LoadCallback)::class.java)\n            }\n        }\n    }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- library/src/main/kotlin/com/fcbox/load/manager/core/LoadService.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ library/src/main/kotlin/com/fcbox/load/manager/core/LoadService.kt	(date 1573730240000)
+@@ -8,36 +8,36 @@
+ import com.fcbox.load.manager.inter.INetError
+ import com.fcbox.load.manager.inter.INetTimeout
+ import com.fcbox.load.manager.state.Error
++import com.fcbox.load.manager.state.Success
+ import com.fcbox.load.manager.state.Timeout
+ 
++
+ /**
+  * @author duanyitao
+  */
+-class LoadService(
++class LoadService internal constructor(
+     targetContext: TargetContext,
+     onReloadListener: ((View) -> Unit)?
+ ) {
+ 
+-    private val loadLayout: LoadLayout = LoadLayout(targetContext.context, onReloadListener)
++    private val loadLayout: LoadLayout =
++        LoadLayout(targetContext.contentParent.context, onReloadListener)
+ 
+     init {
+-        loadLayout.setupSuccessLayout(
+-            LoadLayout.SuccessCallback(
+-                targetContext.contentView,
+-                targetContext.context,
+-                onReloadListener
+-            )
+-        )
+-        targetContext.parentView.addView(
++        targetContext.contentParent.addView(
+             loadLayout,
+-            targetContext.childIndex, targetContext.contentView.layoutParams
++            targetContext.childIndex,
++            targetContext.target.layoutParams
+         )
+-        callbacks.forEach { loadLayout.setupCallback(it) }
+-        loadLayout.showCallback(defaultLoadCallback)
++        loadLayout.installSuccessLayout(
++            Success(targetContext.target)
++        )
++        callbacks.forEach { loadLayout.installCallback(it) }
++        showCallback(defaultLoadCallback)
+     }
+ 
+     fun showSuccess() {
+-        loadLayout.showCallback(LoadLayout.SuccessCallback::class.java)
++        showCallback(Success::class.java)
+     }
+ 
+     private fun showCallback(loadCallback: Class<out LoadCallback>) {
+Index: library/src/main/kotlin/com/fcbox/load/manager/core/LoadManager.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright 2015-2019 Hive Box.\n */\n\npackage com.fcbox.load.manager.core\n\nimport android.content.Context\nimport android.view.View\nimport android.view.ViewGroup\n\n/**\n * @author duanyitao\n */\n\ninternal var callbacks = HashSet<LoadCallback>()\ninternal lateinit var defaultLoadCallback: Class<out LoadCallback>\ninternal var animateTime: Long = 500L\n\nfun View.observe(onReloadListener: ((View) -> Unit)?): LoadService {\n    val targetContext = getTargetContext(this)\n    return LoadService(\n        targetContext,\n        onReloadListener\n    )\n}\n\ninternal fun getTargetContext(target: View): TargetContext {\n    val contentParent: ViewGroup = target.parent as ViewGroup\n    val context: Context = target.context\n    var childIndex = 0\n    val childCount = contentParent.childCount\n    val oldContent: View?\n\n    oldContent = target\n    for (i in 0 until childCount) {\n        if (contentParent.getChildAt(i) === oldContent) {\n            childIndex = i\n            break\n        }\n    }\n\n    contentParent.removeView(oldContent)\n    return TargetContext(context, contentParent, oldContent, childIndex)\n}\n\nobject LoadManager {\n\n    fun addCallbacks(inputCallBacks: HashSet<LoadCallback>): LoadManager {\n        inputCallBacks.forEach { callbacks.add(it) }\n        return this\n    }\n\n    fun setDefaultCallback(callback: Class<out LoadCallback>): LoadManager {\n        defaultLoadCallback = callback\n        return this\n    }\n\n    fun setAnimateTime(time: Long): LoadManager {\n        animateTime = time\n        return this\n    }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- library/src/main/kotlin/com/fcbox/load/manager/core/LoadManager.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ library/src/main/kotlin/com/fcbox/load/manager/core/LoadManager.kt	(date 1573730240000)
+@@ -4,9 +4,8 @@
+ 
+ package com.fcbox.load.manager.core
+ 
+-import android.content.Context
+ import android.view.View
+-import android.view.ViewGroup
++import android.widget.FrameLayout
+ 
+ /**
+  * @author duanyitao
+@@ -18,45 +17,32 @@
+ 
+ fun View.observe(onReloadListener: ((View) -> Unit)?): LoadService {
+     val targetContext = getTargetContext(this)
+-    return LoadService(
+-        targetContext,
+-        onReloadListener
+-    )
++    return LoadService(targetContext, onReloadListener)
+ }
+ 
+ internal fun getTargetContext(target: View): TargetContext {
+-    val contentParent: ViewGroup = target.parent as ViewGroup
+-    val context: Context = target.context
+-    var childIndex = 0
+-    val childCount = contentParent.childCount
+-    val oldContent: View?
+-
+-    oldContent = target
+-    for (i in 0 until childCount) {
+-        if (contentParent.getChildAt(i) === oldContent) {
+-            childIndex = i
+-            break
+-        }
+-    }
+-
+-    contentParent.removeView(oldContent)
+-    return TargetContext(context, contentParent, oldContent, childIndex)
++    val contentParent = target.parent as FrameLayout
++    val childIndex = contentParent.indexOfChild(target)
++    contentParent.removeView(target)
++    return TargetContext(contentParent, target, childIndex)
+ }
+ 
+ object LoadManager {
+ 
+-    fun addCallbacks(inputCallBacks: HashSet<LoadCallback>): LoadManager {
+-        inputCallBacks.forEach { callbacks.add(it) }
+-        return this
++    fun install(inputCallBacks: HashSet<LoadCallback>): LoadManager {
++        if (callbacks.isEmpty()) {
++            inputCallBacks.forEach { callbacks.add(it) }
++            return this
++        } else {
++            throw IllegalStateException("you have repeat call 'install' method")
++        }
+     }
+ 
+-    fun setDefaultCallback(callback: Class<out LoadCallback>): LoadManager {
++    fun setDefaultCallback(callback: Class<out LoadCallback>) {
+         defaultLoadCallback = callback
+-        return this
+     }
+ 
+-    fun setAnimateTime(time: Long): LoadManager {
++    fun setAnimateTime(time: Long) {
+         animateTime = time
+-        return this
+     }
+ }
+Index: library/src/main/kotlin/com/fcbox/load/manager/core/LoadCallback.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright 2015-2019 Hive Box.\n */\n\npackage com.fcbox.load.manager.core\n\nimport android.content.Context\nimport android.view.View\nimport com.fcbox.load.manager.state.Loading\nimport java.io.ByteArrayInputStream\nimport java.io.ByteArrayOutputStream\nimport java.io.ObjectInputStream\nimport java.io.ObjectOutputStream\nimport java.io.Serializable\n\n/**\n * @author duanyitao\n */\nabstract class LoadCallback : Serializable {\n    private var rootView: View? = null\n    private lateinit var context: Context\n    private var onReloadListener: ((View) -> Unit)? = null\n\n    constructor()\n\n    constructor(view: View, context: Context, onReloadListener: ((View) -> Unit)?) {\n        this.rootView = view\n        this.context = context\n        this.onReloadListener = onReloadListener\n    }\n\n    fun setCallback(\n        view: View?,\n        context: Context,\n        onReloadListener: ((View) -> Unit)?\n    ): LoadCallback {\n        this.rootView = view\n        this.context = context\n        this.onReloadListener = onReloadListener\n        return this\n    }\n\n    fun getRootView(): View {\n        val resId = onCreateView()\n        if (resId == 0 && rootView != null) {\n            return rootView as View\n        }\n\n        if (rootView == null) {\n            rootView = View.inflate(context, onCreateView(), null)\n        }\n        rootView!!.setOnClickListener { v ->\n            if (onReloadEvent(context, rootView!!)) {\n                return@setOnClickListener\n            }\n\n            when (this) {\n                is LoadLayout.SuccessCallback -> {\n                }\n                is Loading -> {\n                }\n                else -> {\n                    onReloadListener?.invoke(v)\n                }\n            }\n        }\n        return rootView!!\n    }\n\n    protected open fun onReloadEvent(context: Context, view: View): Boolean {\n        return false\n    }\n\n    fun copy(): LoadCallback {\n\n        val bao = ByteArrayOutputStream()\n        val oos: ObjectOutputStream\n        oos = ObjectOutputStream(bao)\n        oos.writeObject(this)\n        oos.close()\n\n        val bis = ByteArrayInputStream(bao.toByteArray())\n        val ois = ObjectInputStream(bis)\n        val obj = ois.readObject()\n        ois.close()\n\n        return obj as LoadCallback\n    }\n\n    fun obtainRootView(): View? {\n        if (rootView == null) {\n            rootView = View.inflate(context, onCreateView(), null)\n        }\n        return rootView\n    }\n\n    protected abstract fun onCreateView(): Int\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- library/src/main/kotlin/com/fcbox/load/manager/core/LoadCallback.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ library/src/main/kotlin/com/fcbox/load/manager/core/LoadCallback.kt	(date 1573730240000)
+@@ -6,11 +6,6 @@
+ 
+ import android.content.Context
+ import android.view.View
+-import com.fcbox.load.manager.state.Loading
+-import java.io.ByteArrayInputStream
+-import java.io.ByteArrayOutputStream
+-import java.io.ObjectInputStream
+-import java.io.ObjectOutputStream
+ import java.io.Serializable
+ 
+ /**
+@@ -23,29 +18,26 @@
+ 
+     constructor()
+ 
+-    constructor(view: View, context: Context, onReloadListener: ((View) -> Unit)?) {
++    internal constructor(view: View, context: Context, onReloadListener: ((View) -> Unit)?) {
+         this.rootView = view
+         this.context = context
+         this.onReloadListener = onReloadListener
+     }
+ 
+-    fun setCallback(
+-        view: View?,
++    internal fun setCallback(
+         context: Context,
+         onReloadListener: ((View) -> Unit)?
+     ): LoadCallback {
+-        this.rootView = view
+         this.context = context
+         this.onReloadListener = onReloadListener
+         return this
+     }
+ 
+-    fun getRootView(): View {
+-        val resId = onCreateView()
+-        if (resId == 0 && rootView != null) {
+-            return rootView as View
+-        }
++    protected open fun onReloadEvent(context: Context, view: View): Boolean {
++        return false
++    }
+ 
++    fun obtainRootView(): View {
+         if (rootView == null) {
+             rootView = View.inflate(context, onCreateView(), null)
+         }
+@@ -53,46 +45,10 @@
+             if (onReloadEvent(context, rootView!!)) {
+                 return@setOnClickListener
+             }
+-
+-            when (this) {
+-                is LoadLayout.SuccessCallback -> {
+-                }
+-                is Loading -> {
+-                }
+-                else -> {
+-                    onReloadListener?.invoke(v)
+-                }
+-            }
++            onReloadListener?.invoke(v)
+         }
+         return rootView!!
+     }
+ 
+-    protected open fun onReloadEvent(context: Context, view: View): Boolean {
+-        return false
+-    }
+-
+-    fun copy(): LoadCallback {
+-
+-        val bao = ByteArrayOutputStream()
+-        val oos: ObjectOutputStream
+-        oos = ObjectOutputStream(bao)
+-        oos.writeObject(this)
+-        oos.close()
+-
+-        val bis = ByteArrayInputStream(bao.toByteArray())
+-        val ois = ObjectInputStream(bis)
+-        val obj = ois.readObject()
+-        ois.close()
+-
+-        return obj as LoadCallback
+-    }
+-
+-    fun obtainRootView(): View? {
+-        if (rootView == null) {
+-            rootView = View.inflate(context, onCreateView(), null)
+-        }
+-        return rootView
+-    }
+-
+     protected abstract fun onCreateView(): Int
+ }
+Index: library/src/main/kotlin/com/fcbox/load/manager/state/Loading.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright 2015-2019 Hive Box.\n */\n\npackage com.fcbox.load.manager.state\n\nimport com.fcbox.load.manager.R\nimport com.fcbox.load.manager.core.LoadCallback\n\n/**\n * @author duanyitao\n */\n\nclass Loading(private val loadingResLayout: Int? = null) : LoadCallback() {\n\n    override fun onCreateView(): Int {\n        return loadingResLayout ?: R.layout.layout_loading_default\n    }\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- library/src/main/kotlin/com/fcbox/load/manager/state/Loading.kt	(revision c16ff566e4458b621b008b5743ad1e67b008e66a)
++++ library/src/main/kotlin/com/fcbox/load/manager/state/Loading.kt	(date 1573730240000)
+@@ -4,6 +4,8 @@
+ 
+ package com.fcbox.load.manager.state
+ 
++import android.content.Context
++import android.view.View
+ import com.fcbox.load.manager.R
+ import com.fcbox.load.manager.core.LoadCallback
+ 
+@@ -13,6 +15,9 @@
+ 
+ class Loading(private val loadingResLayout: Int? = null) : LoadCallback() {
+ 
++    override fun onReloadEvent(context: Context, view: View): Boolean {
++        return true
++    }
+     override fun onCreateView(): Int {
+         return loadingResLayout ?: R.layout.layout_loading_default
+     }

@@ -1,0 +1,75 @@
+apply plugin: 'maven-publish'
+
+def GROUP_ID = artifactory.groupId
+def ARTIFACT_ID = artifactory.artifactId
+def VERSION_NAME = buildConfig.version.name
+
+def getArtifactFilePath(artifactId, versionName) {
+    return "${project.buildDir}/outputs/aar/${artifactId}-${versionName}.aar"
+}
+
+task androidSourcesJar(type: Jar) {
+    archiveClassifier.set('sources')
+    from android.sourceSets.main.java.source
+}
+
+artifactoryPublish.dependsOn('build')
+
+publishing {
+    publications {
+        aar(MavenPublication) {
+            groupId = GROUP_ID
+            artifactId = ARTIFACT_ID
+
+            File localProperties = rootProject.file('./local.properties')
+
+            // If publish aar as release, change the value to false.
+            boolean PUBLISH_AS_SNAPSHOT = true
+            def readString
+            if (localProperties.exists()) {
+                Properties properties = new Properties()
+                properties.load(localProperties.newDataInputStream())
+                readString = properties.getProperty('publish_as_snapshot')
+            } else {
+                readString = System.getenv("publish_as_snapshot")
+            }
+
+
+            if(readString == "true"){
+                PUBLISH_AS_SNAPSHOT = true
+            } else if (readString == "false"){
+                PUBLISH_AS_SNAPSHOT = false
+            }
+
+            println "publish as snapshot: ${PUBLISH_AS_SNAPSHOT}"
+
+            if (PUBLISH_AS_SNAPSHOT) {
+                version = VERSION_NAME + "-SNAPSHOT"
+            } else {
+                version = VERSION_NAME
+            }
+            // Tell maven to prepare the generated "*.aar" file for publishing
+            artifact(getArtifactFilePath(ARTIFACT_ID, VERSION_NAME))
+            artifact androidSourcesJar
+
+            pom.withXml {
+                def dependenciesNode = asNode().appendNode('dependencies')
+                configurations.api.allDependencies.each { ModuleDependency dp ->
+                    def dependencyNode = dependenciesNode.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', dp.group)
+                    dependencyNode.appendNode('artifactId', dp.name)
+                    dependencyNode.appendNode('version', dp.version)
+
+                    if (dp.excludeRules.size() > 0) {
+                        def exclusions = dependencyNode.appendNode('exclusions')
+                        dp.excludeRules.each { ExcludeRule ex ->
+                            def exclusion = exclusions.appendNode('exclusion')
+                            exclusion.appendNode('groupId', ex.group)
+                            exclusion.appendNode('artifactId', ex.module)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

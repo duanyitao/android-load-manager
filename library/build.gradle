@@ -1,0 +1,87 @@
+plugins {
+    id 'com.android.library'
+    id 'kotlin-android'
+    id 'kotlin-android-extensions'
+    id 'com.jfrog.artifactory'
+    id 'maven-publish'
+}
+
+//noinspection GroovyMissingReturnStatement
+android {
+    compileSdkVersion buildConfig.compileSdk
+
+    defaultConfig {
+        minSdkVersion buildConfig.minSdk
+        targetSdkVersion buildConfig.targetSdk
+        versionCode buildConfig.version.code
+        versionName buildConfig.version.name
+        consumerProguardFiles 'proguard-rules.pro'
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunnerArguments clearPackageData: 'true'
+        testInstrumentationRunnerArgument "size", "small"
+
+        compileOptions {
+            kotlinOptions.freeCompilerArgs += ['-module-name', "${artifactory.groupId}.${artifactory.artifactId}"]
+        }
+
+        lintOptions {
+            // Turns off checks for the issue IDs you specify.
+            disable 'TypographyFractions', 'TypographyQuotes'
+            // Turns on checks for the issue IDs you specify. These checks are in
+            // addition to the default lint checks.
+            enable 'RtlHardcoded', 'RtlCompat', 'RtlEnabled'
+            // To enable checks for only a subset of issue IDs and ignore all others,
+            // list the issue IDs with the 'check' property instead. This property overrides
+            // any issue IDs you enable or disable using the properties above.
+            check 'NewApi', 'InlinedApi'
+            // If set to true, turns off analysis progress reporting by lint.
+            quiet true
+            // if set to true (default), stops the build if errors are found.
+            abortOnError false
+            // if true, only report errors.
+            ignoreWarnings true
+        }
+    }
+
+    testOptions {
+        execution 'ANDROIDX_TEST_ORCHESTRATOR'
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+        test.java.srcDirs += 'src/test/kotlin'
+        androidTest.java.srcDirs += 'src/androidTest/kotlin'
+    }
+
+    buildTypes {
+        debug {
+        }
+        release {
+        }
+    }
+
+    compileOptions {
+        encoding = "UTF-8"
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    libraryVariants.all { variant ->
+        variant.outputs.all { output ->
+            def verName = buildConfig.version.name
+            outputFileName = artifactory.artifactId + '-' + verName + '.aar'
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+
+}
+
+apply from: rootProject.file('gradle/gradle-mvn-push.gradle')

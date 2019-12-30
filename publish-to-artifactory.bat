@@ -1,0 +1,1 @@
+gradlew :library:clean && gradlew :library:build && gradlew :library:assembleRelease artifactoryPublish
