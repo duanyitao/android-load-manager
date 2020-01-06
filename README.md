@@ -80,7 +80,7 @@ And finally, you can post different message(Sub class of LoadCallback) to change
 
 ## Custom state
 
-### implements a sub class for LoadCallback ,and provide the UI to display when receive this custom type message
+### 1. implements a sub class for LoadCallback ,and provide the UI to display when receive this custom type message
 
 ```kotlin
   class SearchEmpty : LoadCallback() {
@@ -89,7 +89,7 @@ And finally, you can post different message(Sub class of LoadCallback) to change
             }
         }
 ```
-### add the implementation class to the list when init
+### 2. add the implementation class to the list when init
 
 
 ```kotlin
@@ -108,7 +108,7 @@ LoadManager.install(inputCallBacks)
     }
 ```
 
-### post this type event message to change to custom UI.
+### 3. post this type event message to change to custom UI.
 
 ```kotlin
 loadService.notify(SearchEmpty())
