@@ -9,33 +9,32 @@ load-manager 可以优雅地处理页面的加载中、加载错误、无数据�
 ### 1、全局 init ，建议在 Application#onCreate 里面完成 
 
 ```kotlin
+val inputCallBacks = hashSetOf(
+    Error(R.layout.hc_layout_error_default),
+    Loading(R.layout.hc_layout_loading_default),
+    Empty(R.layout.hc_layout_empty_default),
+    Timeout(R.layout.hc_layout_timeout_default),
+    CustomLoadState.Search.Empty()
+)
 
-        val inputCallBacks = hashSetOf(
-            Error(R.layout.hc_layout_error_default),
-            Loading(R.layout.hc_layout_loading_default),
-            Empty(R.layout.hc_layout_empty_default),
-            Timeout(R.layout.hc_layout_timeout_default),
-            CustomLoadState.Search.Empty()
-        )
-
-        LoadManager.install(inputCallBacks)
-            .apply {
-                setDefaultCallback(Success::class.java)
-                setAnimateTime(300)
-            }
+LoadManager.install(inputCallBacks)
+    .apply {
+        setDefaultCallback(Success::class.java)
+        setAnimateTime(300)
+    }
 ```
 
 ### 2、具体的页面使用
 
 #### 2.1 使用 Target View，调用库中提供的全局方法 View.observe{//handle event}，获取 LoadService 实例 
 ```kotlin
-    private lateinit var loadService: LoadService
+private lateinit var loadService: LoadService
 ```
 
 ```kotlin
-        loadService = rvList.observe {
-            LogUtils.i("onReload()")
-        }
+loadService = rvList.observe {
+    LogUtils.i("onReload()")
+}
 ```
 #### 2.2 通过 LoadService 实例，进行消息通知
 
@@ -49,28 +48,28 @@ or
 
 ```kotlin
 fun notify(event: Any) {
-        when (event) {
-            is INetTimeout -> notify(event)
-            is Throwable -> notify(event)
-            is INetError -> notify(event)
-            is LoadCallback -> notify(event)
-            else -> throw IllegalArgumentException("非法参数：$event")
-        }
+    when (event) {
+        is INetTimeout -> notify(event)
+        is Throwable -> notify(event)
+        is INetError -> notify(event)
+        is LoadCallback -> notify(event)
+        else -> throw IllegalArgumentException("非法参数：$event")
     }
+}
 
-    fun notify(event: LoadCallback) {
-        showCallback(event::class.java)
-    }
+fun notify(event: LoadCallback) {
+    showCallback(event::class.java)
+}
 
-    fun notify(error: INetTimeout) {
-        showCallback(Timeout::class.java)
-    }
+fun notify(error: INetTimeout) {
+    showCallback(Timeout::class.java)
+}
 
-    fun notify(error: Throwable) {
-        showCallback(Error::class.java)
-    }
+fun notify(error: Throwable) {
+    showCallback(Error::class.java)
+}
 
-    fun notify(error: INetError) {
-        showCallback(Error::class.java)
-    }
+fun notify(error: INetError) {
+    showCallback(Error::class.java)
+}
 ```
