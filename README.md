@@ -43,7 +43,7 @@ loadService.showSuccess()
 
 ```
 
-or 
+or call the next methods:
 
 
 ```kotlin
