@@ -37,7 +37,7 @@ loadService = rvList.observe {
     LogUtils.i("onReload()")
 }
 ```
-#### 2.2 through `LoadService` instance to post notification to update UI.
+#### 2.2 through `LoadService` instance to post notifications to update UI.
 
 just like this:
 
