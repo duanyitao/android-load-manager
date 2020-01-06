@@ -6,7 +6,7 @@ load-manager 可以优雅地处理页面的加载中、加载错误、无数据�
 
 ## 使用步骤
 
-### 全局 init ，建议在 Application#onCreate 里面完成 
+### 1、全局 init ，建议在 Application#onCreate 里面完成 
 
 ```kotlin
 
@@ -25,9 +25,9 @@ load-manager 可以优雅地处理页面的加载中、加载错误、无数据�
             }
 ```
 
-### 具体的页面使用
+### 2、具体的页面使用
 
-#### 使用 Target View，调用库中提供的全局方法 View.observe{//handle event}，获取 LoadService 实例 
+#### 2.1 使用 Target View，调用库中提供的全局方法 View.observe{//handle event}，获取 LoadService 实例 
 ```kotlin
     private lateinit var loadService: LoadService
 ```
@@ -37,7 +37,7 @@ load-manager 可以优雅地处理页面的加载中、加载错误、无数据�
             LogUtils.i("onReload()")
         }
 ```
-#### 通过 LoadService 实例，进行消息通知
+#### 2.2 通过 LoadService 实例，进行消息通知
 
 ```kotlin
 loadService.showSuccess()
