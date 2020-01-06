@@ -39,6 +39,8 @@ loadService = rvList.observe {
 ```
 #### 2.2 through `LoadService` instance to post notification to update UI.
 
+just like this:
+
 ```kotlin
 loadService.showSuccess()
 ```
