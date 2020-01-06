@@ -84,7 +84,10 @@ fun notify(error: INetError) {
 And finally, you can post different message(Sub class of LoadCallback) to change UI.
 
 
-## Custom state
+
+
+
+## Custom state ?
 
 ### 1. implements a sub class for LoadCallback ,and provide the UI to display when receive this custom type message
 
