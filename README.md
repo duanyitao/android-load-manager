@@ -2,11 +2,11 @@
 
 load-manager 可以优雅地处理页面的加载中、加载错误、无数据、超时、重试等场景需求。使用 Kotlin 实现
 
-参考了 loadSir（https://github.com/KingJA/LoadSir） 的思想。
+reference the loadSir lib（https://github.com/KingJA/LoadSir).
 
-## 使用步骤
+## How to use ?
 
-### 1、全局 init ，建议在 Application#onCreate 里面完成 
+### 1、Init gloabal ，recommend in Application#onCreate 
 
 ```kotlin
 val inputCallBacks = hashSetOf(
@@ -24,9 +24,9 @@ LoadManager.install(inputCallBacks)
     }
 ```
 
-### 2、具体的页面使用
+### 2、In page
 
-#### 2.1 使用 Target View，调用库中提供的全局方法 View.observe{//handle event}，获取 LoadService 实例 
+#### 2.1 Use target view to call global mothod `View.observe{//handle event}` to get a `LoadService` instance. 
 ```kotlin
 private lateinit var loadService: LoadService
 ```
@@ -36,11 +36,10 @@ loadService = rvList.observe {
     LogUtils.i("onReload()")
 }
 ```
-#### 2.2 通过 LoadService 实例，进行消息通知
+#### 2.2 through `LoadService` instance to post notification to update UI.
 
 ```kotlin
 loadService.showSuccess()
-
 ```
 
 or call the next methods:
@@ -73,3 +72,5 @@ fun notify(error: INetError) {
     showCallback(Error::class.java)
 }
 ```
+
+And finally, you can post different message(Sub class of LoadCallback) to change UI.
