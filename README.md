@@ -3,7 +3,7 @@
 ## load-manager 
 Can gracefully handle page loading, loading errors, no data, timeout, retry and other scenario requirements. Use the Kotlin implementation
 
-reference the loadSir lib（https://github.com/KingJA/LoadSir).
+> reference the loadSir lib（https://github.com/KingJA/LoadSir).
 
 ## How to use ?
 
