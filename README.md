@@ -30,7 +30,7 @@ LoadManager.install(inputCallBacks)
 
 call the method:
 ```kotlin
- `View.observe{//handle event}` 
+ View.observe{//handle event}
 ```
 
 ```kotlin
