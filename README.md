@@ -14,8 +14,7 @@ val inputCallBacks = hashSetOf(
     Error(R.layout.hc_layout_error_default),
     Loading(R.layout.hc_layout_loading_default),
     Empty(R.layout.hc_layout_empty_default),
-    Timeout(R.layout.hc_layout_timeout_default),
-    CustomLoadState.Search.Empty()
+    Timeout(R.layout.hc_layout_timeout_default)
 )
 
 LoadManager.install(inputCallBacks)
@@ -77,3 +76,41 @@ fun notify(error: INetError) {
 ```
 
 And finally, you can post different message(Sub class of LoadCallback) to change UI.
+
+
+## Custom state
+
+### implements a sub class for LoadCallback ,and provide the UI to display when receive this custom type message
+
+```kotlin
+  class SearchEmpty : LoadCallback() {
+            override fun onCreateView(): Int {
+                return R.layout.layout_search_empty
+            }
+        }
+```
+### add the implementation class to the list when init
+
+
+```kotlin
+val inputCallBacks = hashSetOf(
+    Error(R.layout.hc_layout_error_default),
+    Loading(R.layout.hc_layout_loading_default),
+    Empty(R.layout.hc_layout_empty_default),
+    Timeout(R.layout.hc_layout_timeout_default),
+    `SearchEmpty()`
+)
+
+LoadManager.install(inputCallBacks)
+    .apply {
+        setDefaultCallback(Success::class.java)
+        setAnimateTime(300)
+    }
+```
+
+### post this type event message to change to custom UI.
+
+```kotlin
+loadService.notify(SearchEmpty())
+```
+
