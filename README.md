@@ -7,7 +7,7 @@ Can gracefully handle page loading, loading errors, no data, timeout, retry and 
 
 ## How to use ?
 
-### 1、Init gloabal ，recommend in Application#onCreate 
+### 1、Global initialization ，recommend in Application#onCreate 
 
 ```kotlin
 val inputCallBacks = hashSetOf(
@@ -24,9 +24,15 @@ LoadManager.install(inputCallBacks)
     }
 ```
 
-### 2、In page
+### 2、In the page
 
-#### 2.1 Use target view to call global mothod `View.observe{//handle event}` to get a `LoadService` instance. 
+#### 2.1 Call the global extension method using the target view to get a `LoadService` instance. 
+
+call the method:
+```kotlin
+ `View.observe{//handle event}` 
+```
+
 ```kotlin
 private lateinit var loadService: LoadService
 ```
