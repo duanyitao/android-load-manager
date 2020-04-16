@@ -1,6 +1,6 @@
-# load-manager
+# How to use load-manager library
 
-## load-manager 
+## Load-Manager 
 Can gracefully handle page loading, loading errors, no data, timeout, retry and other scenario requirements. Use the Kotlin implementation
 
 > reference the loadSir lib（https://github.com/KingJA/LoadSir).
@@ -24,13 +24,13 @@ LoadManager.install(inputCallBacks)
     }
 ```
 
-### 2、In the page
+### 2、In the page (Activity or Fragment)
 
 #### 2.1 Call the global extension method using the target view to get a `LoadService` instance. 
 
 call the method:
 ```kotlin
- View.observe{//handle event}
+ View.observe{//handle reload event}
 ```
 
 ```kotlin
@@ -42,15 +42,15 @@ loadService = rvList.observe {
     LogUtils.i("onReload()")
 }
 ```
-#### 2.2 through `LoadService` instance to post notifications to update UI.
+#### 2.2 Post notifications event to update UI through `LoadService` instance.
 
-just like this:
+like this:
 
 ```kotlin
 loadService.showSuccess()
 ```
 
-or call the next methods:
+or call the flowing methods:
 
 
 ```kotlin
@@ -81,7 +81,7 @@ fun notify(error: INetError) {
 }
 ```
 
-And finally, you can post different message(Sub class of LoadCallback) to change UI.
+And finally, you can post different message(Sub class of LoadCallback)  to change UI.
 
 
 
@@ -92,11 +92,12 @@ And finally, you can post different message(Sub class of LoadCallback) to change
 ### 1. implements a sub class for LoadCallback ,and provide the UI to display when receive this custom type message
 
 ```kotlin
+  // custom status
   class SearchEmpty : LoadCallback() {
             override fun onCreateView(): Int {
                 return R.layout.layout_search_empty
             }
-        }
+ }
 ```
 ### 2. add the implementation class to the list when init
 
@@ -107,7 +108,7 @@ val inputCallBacks = hashSetOf(
     Loading(R.layout.hc_layout_loading_default),
     Empty(R.layout.hc_layout_empty_default),
     Timeout(R.layout.hc_layout_timeout_default),
-    `SearchEmpty()`
+    SearchEmpty() // custom view
 )
 
 LoadManager.install(inputCallBacks)
@@ -122,4 +123,4 @@ LoadManager.install(inputCallBacks)
 ```kotlin
 loadService.notify(SearchEmpty())
 ```
-
+and the `R.layout.layout_search_empty` will be display.
